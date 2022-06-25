@@ -101,3 +101,9 @@ def corr_vazao_normal(
     vaz_mass = vaz_mol * mmolar_ap
 
     return vaz_mass, vaz_mol
+
+def df_vazoes(dataframe):
+    dict_vals = {}
+    dict_vals["CO2 comb"] = dataframe.iloc[1,0] + dataframe.iloc[1,3]
+    dict_vals["H2O"] = dataframe.iloc[1,1] + dataframe.iloc[1,2] + dataframe.iloc[1,3]
+    dict_vals["Ar"] = ()
