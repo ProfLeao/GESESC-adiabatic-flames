@@ -102,8 +102,21 @@ def corr_vazao_normal(
 
     return vaz_mass, vaz_mol
 
-def df_vazoes(dataframe):
+def vaz_reagentes(dataframe):
+    """
+        Recebe uma dataframe com as vazões molares dos gases provenientes do 
+        autoforno colocadas na segunda linha e as colunas dispostas na forma:
+        CO 	H2 	H2O 	CH4 	N2 	CO2
+        retornando uma dataframe com com as vazões dos gases de combustão e 
+        a quantidade de ar teórica necessária para a combustão completa. 
+    """
     dict_vals = {}
     dict_vals["CO2 comb"] = dataframe.iloc[1,0] + dataframe.iloc[1,3]
-    dict_vals["H2O"] = dataframe.iloc[1,1] + dataframe.iloc[1,2] + dataframe.iloc[1,3]
-    dict_vals["Ar"] = ()
+    dict_vals["H2O"] = dataframe.iloc[1,1] + dataframe.iloc[1,2] +\
+        dataframe.iloc[1,3]
+    ar_teo = (.5 * dict_vals["CO2 comb"] + dict_vals["H2O"] -\
+        dataframe.iloc[1,2])/0.5
+    dict_vals["N2"] = dataframe.iloc[1,4] + 3.76 * ar_teo
+    df = pd.DataFrame(dict_vals, index=["vazao molar individual"])
+
+    return df, ar_teo
