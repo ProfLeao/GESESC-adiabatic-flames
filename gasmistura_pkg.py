@@ -102,7 +102,7 @@ def corr_vazao_normal(
 
     return vaz_mass, vaz_mol
 
-def vaz_reagentes(dataframe):
+def vaz_combustao(dataframe):
     """
         Recebe uma dataframe com as vazões molares dos gases provenientes do 
         autoforno colocadas na segunda linha e as colunas dispostas na forma:
