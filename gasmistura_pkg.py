@@ -120,3 +120,51 @@ def vaz_combustao(dataframe):
     df = pd.DataFrame(dict_vals, index=["vazao molar individual"])
 
     return df, ar_teo
+
+def vaz_combustao_prot(dataframe):
+    """
+        Recebe um dataframe de uma linha com os dados de vazão dos gases do 
+        autoforno. Na versão atual a composição deve ser limitada à:
+        CO, H2, H2O, CH4, N2, CO2 e Ar. O Ar pode ser substituído por O2 e N2
+        atmosféricos na forma n(O2 + 3.72 N2) quando conveniente, ou mesmo 
+        omitido, neste último caso, a quantidade de ar é calculada 
+        automaticamente.
+
+        Retorna dois dataframes, um com os dados dos gases reagentes, e outro 
+        com os dados dos gases de combustão. 
+    """
+    compostos = [val.lower() for val in dataframe.columns]
+    dfcomb = pd.DataFrame()
+
+    dfcomb.loc["vazao molar individual","CO2"] =\
+        dataframe.loc["vazao molar individual","CO"] +\
+        dataframe.loc["vazao molar individual","CH4"]
+
+    dfcomb.loc["vazao molar individual","H2O"] =\
+        dataframe.loc["vazao molar individual","H2"] +\
+        dataframe.loc["vazao molar individual","H2O"] +\
+        2 * dataframe.loc["vazao molar individual","CH4"]
+    
+    if "ar" in compostos:
+        dfcomb.loc["vazao molar individual","N2"] =\
+            dataframe.loc["vazao molar individual","N2"] +\
+            3.72 * dataframe.loc["vazao molar individual","Ar"]
+
+    elif "o2" in compostos:
+        dfcomb.loc["vazao molar individual","N2"] =\
+            dataframe.loc["vazao molar individual","N2"] +\
+            3.72 * dataframe.loc["vazao molar individual","O2"]
+
+    else:
+        dataframe.loc["vazao molar individual","O2"] = (
+            2 * dfcomb.loc["vazao molar individual","CO2"] +\
+            dfcomb.loc["vazao molar individual","H2O"] -\
+            dataframe.loc["vazao molar individual","CO"] -\
+            dataframe.loc["vazao molar individual","H2O"]
+        ) / 2
+
+        dfcomb.loc["vazao molar individual","N2"] =\
+            dataframe.loc["vazao molar individual","N2"] +\
+            3.72 * dataframe.loc["vazao molar individual","O2"]
+    
+    return dataframe, dfcomb
