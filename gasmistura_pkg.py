@@ -102,36 +102,24 @@ def corr_vazao_normal(
 
     return vaz_mass, vaz_mol
 
+
 def vaz_combustao(dataframe):
     """
-        Recebe uma dataframe com as vazões molares dos gases provenientes do 
-        autoforno colocadas na segunda linha e as colunas dispostas na forma:
-        CO 	H2 	H2O 	CH4 	N2 	CO2
-        retornando uma dataframe com com as vazões dos gases de combustão e 
-        a quantidade de ar teórica necessária para a combustão completa. 
-    """
-    dict_vals = {}
-    dict_vals["CO2 comb"] = dataframe.iloc[1,0] + dataframe.iloc[1,3]
-    dict_vals["H2O"] = dataframe.iloc[1,1] + dataframe.iloc[1,2] +\
-        dataframe.iloc[1,3]
-    ar_teo = (.5 * dict_vals["CO2 comb"] + dict_vals["H2O"] -\
-        dataframe.iloc[1,2])/0.5
-    dict_vals["N2"] = dataframe.iloc[1,4] + 3.76 * ar_teo
-    df = pd.DataFrame(dict_vals, index=["vazao molar individual"])
+        Realiza o balaço de massa da combustão dos gases de auto-forno.
 
-    return df, ar_teo
-
-def vaz_combustao_prot(dataframe):
-    """
-        Recebe um dataframe de uma linha com os dados de vazão dos gases do 
+        Parâmetros: 
+        · um dataframe de uma linha com os dados de vazão dos gases do 
         autoforno. Na versão atual a composição deve ser limitada à:
         CO, H2, H2O, CH4, N2, CO2 e Ar. O Ar pode ser substituído por O2 e N2
         atmosféricos na forma n(O2 + 3.72 N2) quando conveniente, ou mesmo 
         omitido, neste último caso, a quantidade de ar é calculada 
         automaticamente.
 
-        Retorna dois dataframes, um com os dados dos gases reagentes, e outro 
-        com os dados dos gases de combustão. 
+        Retornos:
+        · o dataframe dos gases de combustão com a demanda de ar-teórico caso 
+        este não conste no dataframe original passado como argumento
+        · um segundo dataframe com os gases de combustão já balanceados em
+        massa. 
     """
     compostos = [val.lower() for val in dataframe.columns]
     dfcomb = pd.DataFrame()
@@ -156,15 +144,16 @@ def vaz_combustao_prot(dataframe):
             3.72 * dataframe.loc["vazao molar individual","O2"]
 
     else:
-        dataframe.loc["vazao molar individual","O2"] = (
-            2 * dfcomb.loc["vazao molar individual","CO2"] +\
-            dfcomb.loc["vazao molar individual","H2O"] -\
-            dataframe.loc["vazao molar individual","CO"] -\
-            dataframe.loc["vazao molar individual","H2O"]
-        ) / 2
+        dataframe.loc["vazao molar individual","O2"] =\
+            dataframe.loc["vazao molar individual","CO"]/2 +\
+            dataframe.loc["vazao molar individual","H2"]/2 +\
+            dataframe.loc["vazao molar individual","CH4"]*2
 
         dfcomb.loc["vazao molar individual","N2"] =\
             dataframe.loc["vazao molar individual","N2"] +\
+            3.72 * dataframe.loc["vazao molar individual","O2"]
+
+        dataframe.loc["vazao molar individual","N2"] +=\
             3.72 * dataframe.loc["vazao molar individual","O2"]
     
     return dataframe, dfcomb
