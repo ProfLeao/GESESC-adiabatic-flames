@@ -157,3 +157,127 @@ def vaz_combustao(dataframe):
             3.72 * dataframe.loc["vazao molar individual","O2"]
     
     return dataframe, dfcomb
+
+def temp_adiabatica(
+    df_reagentes, 
+    df_produtos, 
+    metodo,
+    guess = 1000, 
+    salva_dados = False):
+    """
+        Determina a temperatura adiabática da chama para um conjunto de 
+        reagentes e produtos. Além disso, exibe no terminal um log do estado
+        final alcançado pelo algoritmo característico do método utilizado. 
+        Se o parâmetro opcional salva_dados for passado como True, um arquivo 
+        .csv é criado no diretório de execução com os dados evolutivos do modelo
+        para cada iteração realizada, assim como um arquivo de texto plano 
+        .txt com o log exibido no terminal. 
+
+        Parâmetros:
+        · df_reagentes - DataFrame com colunas nomeadas segundo a fórmula 
+        química dos compostos presentes no combustível e uma linha contendo 
+        as vazões molares ou frações desses compostos.
+        
+        · df_prdutos - DataFrame com colunas nomeadas segundo a fórmula 
+        química dos compostos presentes nos gases de combustão e uma linha 
+        contendo as vazões molares ou frações desses compostos.
+
+        · metodo - Strig com o método utilizado para a determinação da
+        temperatura adiabática. 
+
+            i) "moran" - método iterativo brute force proposto por moran e 
+            shapiro.
+            
+            ii) "bisect" - método da bissecção
+            
+            iii)  "brentq"  - método clássico de Brent veja (Brent, R. P., 
+            Algorithms for Minimization Without Derivatives. Englewood Cliffs, 
+            NJ: Prentice-Hall, 1973. Ch. 3-4.)
+            
+            iv) "brenth" - método de Brent com extrapolação hiperbólica veja 
+            (Bus, J. C. P., Dekker, T. J., “Two Efficient Algorithms with 
+            Guaranteed Convergence for Finding a Zero of a Function”, ACM 
+            Transactions on Mathematical Software, Vol. 1, Issue 4, Dec. 1975, 
+            pp. 330-345. Section 3: “Algorithm M”. DOI:10.1145/355656.355659)
+
+            v) "ridder" - método de Ridder
+
+            vi) "toms748" - algorítimo 748 de Alefeld, Potro and Shi veja 
+            (APS1995 Alefeld, G. E. and Potra, F. A. and Shi, Yixun, Algorithm 
+            748: Enclosing Zeros of Continuous Functions, ACM Trans. Math. 
+            Softw. Volume 221(1995) doi = {10.1145/210089.210111})
+
+            vii) "newton" - método de Newton. 
+
+            viii) "secant" - método das secantes.
+
+            ix) "halley" - método de Halley veja (Boyd, J. P. (2013). "Finding 
+            the Zeros of a Univariate Equation: Proxy Rootfinders, Chebyshev 
+            Interpolation, and the Companion Matrix". SIAM Review. 55 (2): 
+            375–396. doi:10.1137/110838297)
+        
+        · [guess] opcional - lista com sugestão de temperatura(s) para início 
+        dos algoritmos. Se apenas um valor for passado, as buscas são realizadas 
+        em torno do valor. Se dois valores forem passados, então entre os 
+        os valores, inclusivamente.
+
+        · [salva_dados] opcional - booleano; quando True, os dados da busca 
+        são salvos no diretório de execução. A saber, um CSV com os valores 
+        assumidos pelo algoritmo em cada iteração e um log com o estado final 
+        do algoritmo. 
+
+        Retorno:
+        · float - temperatura adiabática da chama em Kelvins.         
+
+        Para mais informações consultar:
+        https://rb.gy/fdcsqf
+    """
+    
+    # Obtem entalpias de formação do NIST
+    try:
+        url = "https://data.nist.gov/od/ds/mds2-2124/NBS_Tables%20Library.xlsx"
+        df_form_enthalpies = pd.read_excel(url)
+        df_form_enthalpies = df_form_enthalpies.iloc[:,[0,7]]
+        df_form_enthalpies.columns = ["compostos", "entform"]
+    except:
+        print(
+            "Impossível conectar ao Data NIST para extração das entalpias de",
+            " formação."
+        )
+
+    try:
+        if metodo.lower() == "moran":
+
+            reagentes = df_reagentes.columns
+            produtos = df_produtos.columns
+
+            # consulta ao banco de dados DF o somatório das entalpuias de 
+            # formação dos reagente 
+            reag_ent_form =   df_form_enthalpies.query(
+                f"compostos in {reagentes}"
+            )["entform"].map(float).sum()
+
+            # Iterações de busca:
+
+            min_del_temp = 1 # K - menor temperatura a ser incrementada na busca
+            del_temp = 500   # K - incremento inicial da temperatura
+            temp = guess
+            while del_temp > min_del_temp:
+                np.sum(
+                    [
+                        df_produtos.loc["vazao molar individual",c] *\
+                            df_produtos.PropsSI(
+                                "HMOLAR",
+                                'T', 
+                                temp, 
+                                'P', 
+                                101325, 
+                                c
+                            ) -  
+                            for c in 
+                        ]
+                )
+
+
+
+
