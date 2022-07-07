@@ -163,7 +163,8 @@ def temp_adiabatica(
     df_produtos, 
     metodo,
     guess = 1000, 
-    salva_dados = False):
+    salva_dados = True,
+    nmax_iter = 1e5):
     """
         Determina a temperatura adiabática da chama para um conjunto de 
         reagentes e produtos. Além disso, exibe no terminal um log do estado
@@ -226,6 +227,9 @@ def temp_adiabatica(
         assumidos pelo algoritmo em cada iteração e um log com o estado final 
         do algoritmo. 
 
+        · [nmax_iter] opcional - inteiro com o número máximo de iterações 
+        permitidas. 
+
         Retorno:
         · float - temperatura adiabática da chama em Kelvins.         
 
@@ -245,6 +249,7 @@ def temp_adiabatica(
             " formação."
         )
 
+    dados = pd.DataFrame()
     try:
         if metodo.lower() == "moran":
 
@@ -260,23 +265,68 @@ def temp_adiabatica(
             # Iterações de busca:
 
             min_del_temp = 1 # K - menor temperatura a ser incrementada na busca
-            del_temp = 500   # K - incremento inicial da temperatura
+            del_temp = guess/2   # K - incremento inicial da temperatura
             temp = guess
+            n_iter = 0
             while del_temp > min_del_temp:
-                np.sum(
+                n_iter += 1
+                prods_ental = np.sum(
                     [
+                        float(df_form_enthalpies.loc[c,entform]) +\
                         df_produtos.loc["vazao molar individual",c] *\
                             df_produtos.PropsSI(
-                                "HMOLAR",
+                                "HMOLAR", 
                                 'T', 
                                 temp, 
                                 'P', 
                                 101325, 
                                 c
-                            ) -  
-                            for c in 
+                            ) -\
+                            df_produtos.PropsSI(
+                                "HMOLAR",
+                                'T', 
+                                298, 
+                                'P', 
+                                101325, 
+                                c
+                            )
+                            for c in produtos
                         ]
                 )
+
+                # Armazena os dados apenas se salva_dados == True
+                if salva_dados:
+                    df = pd.DataFrame(
+                        [[n_iter, temp, prods_ental]], 
+                        columns=["iteracoes", "temperaturaK", "sumentalpia"]
+                    )
+                    dados = pd.concat([dados, df])
+                
+                result = round(prods_ental, 2)
+                if round(prods_ental, 2) == round(reag_ent_form, 2):
+                    if salva_dados:
+                        dados.to_csv("dados.csv", sep=",")
+                    return result
+                elif del_temp<=1:
+                    if salva_dados:
+                        dados.to_csv("dados.csv", sep=",")
+                    return result
+                elif prods_ental > reag_ent_form:
+                    temp -= del_temp
+                    del_temp *= .9
+                elif prods_ental < reag_ent_form:
+                    temp += del_temp
+                    del_temp *= .9
+                elif n_iter > nmax_iter:
+                    if salva_dados:
+                        dados.to_csv("dados.csv", sep=",")
+                    raise Exception("Número máximo de iterações excedido.")
+                else:
+                    raise Exception("Erro desconhecido.")
+    
+    except:
+        return None
+
 
 
 
