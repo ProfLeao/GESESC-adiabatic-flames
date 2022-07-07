@@ -161,6 +161,7 @@ def vaz_combustao(dataframe):
 def temp_adiabatica(
     df_reagentes, 
     df_produtos, 
+    ar_teorico,
     metodo,
     guess = 1000, 
     salva_dados = True,
@@ -172,7 +173,12 @@ def temp_adiabatica(
         Se o parâmetro opcional salva_dados for passado como True, um arquivo 
         .csv é criado no diretório de execução com os dados evolutivos do modelo
         para cada iteração realizada, assim como um arquivo de texto plano 
-        .txt com o log exibido no terminal. 
+        .txt com o log exibido no terminal.
+
+        !!!!!  IMPORTANTE:
+        Na versão atual o cálculo da razão de equivalência está 
+        restrito aos combustíveis CO, H2 e CH4. Nas próximas versões, uma maior
+        disponibilidade combustíveis será implementada. 
 
         Parâmetros:
         · df_reagentes - DataFrame com colunas nomeadas segundo a fórmula 
@@ -182,6 +188,9 @@ def temp_adiabatica(
         · df_prdutos - DataFrame com colunas nomeadas segundo a fórmula 
         química dos compostos presentes nos gases de combustão e uma linha 
         contendo as vazões molares ou frações desses compostos.
+
+        · ar_teorico - Float, quantidade de ar teórico para a combustão 
+        completa dos reagentes presentes em df_reagentes
 
         · metodo - Strig com o método utilizado para a determinação da
         temperatura adiabática. 
@@ -236,7 +245,29 @@ def temp_adiabatica(
         Para mais informações consultar:
         https://rb.gy/fdcsqf
     """
-    
+
+    def status_log():
+        """
+        Exibe o log da execução se o salvamento estiver ativado o realiza.  
+        """
+        msg_log = "LOG de EXECUÇÃO:\n" + f"\t Método de busca: {metodo}.\n" +\
+            f"\t Número de iterações: {n_iter}\n" +\
+            f"\t Sucesso?: {sucesso}\n" +\
+            f"\t Melhor resultado (temperatura adiabática): {temp}\n" +\
+            "\t Erro relativo:"+\
+            f"{(prods_ental - df_form_enthalpies)/prods_ental}\n"
+        print(msg_log)
+
+        if salva_dados:
+            df = pd.DataFrame(
+                [[n_iter, temp, prods_ental]], 
+                columns=["iteracoes", "temperaturaK", "sumentalpia", "eqratio"]
+            )
+            dados = pd.concat([dados, df])
+            with open("temp_adiabatica.log", 'w') as arq:
+                arq.write(log)
+            
+
     # Obtem entalpias de formação do NIST
     try:
         url = "https://data.nist.gov/od/ds/mds2-2124/NBS_Tables%20Library.xlsx"
@@ -248,6 +279,12 @@ def temp_adiabatica(
             "Impossível conectar ao Data NIST para extração das entalpias de",
             " formação."
         )
+
+    # Razão ar-combustível ideal.
+    rac_ideal = df_reagentes.loc[
+        "vazao molar individual", 
+        ["CO", "H2", "CH4"]
+    ].sum() / ar_teorico
 
     dados = pd.DataFrame()
     try:
@@ -293,24 +330,32 @@ def temp_adiabatica(
                             for c in produtos
                         ]
                 )
-
-                # Armazena os dados apenas se salva_dados == True
-                if salva_dados:
-                    df = pd.DataFrame(
-                        [[n_iter, temp, prods_ental]], 
-                        columns=["iteracoes", "temperaturaK", "sumentalpia"]
-                    )
-                    dados = pd.concat([dados, df])
-                
                 result = round(prods_ental, 2)
-                if round(prods_ental, 2) == round(reag_ent_form, 2):
-                    if salva_dados:
-                        dados.to_csv("dados.csv", sep=",")
-                    return result
+ 
+                if result == round(reag_ent_form, 2):
+                    sucesso = True
+                    status_log()
+                    coef_ratio = (
+                        df_reagentes.loc[
+                            "vazao molar individual",
+                            ["CO", "H2", "CH4"]
+                        ].sum() / df_reagentes.loc[
+                            "vazao molar individual","O2"
+                        ]
+                    ) / rac_ideal
+                    return result, coef_ratio
                 elif del_temp<=1:
-                    if salva_dados:
-                        dados.to_csv("dados.csv", sep=",")
-                    return result
+                    sucesso = True
+                    status_log()
+                    coef_ratio = (
+                        df_reagentes.loc[
+                            "vazao molar individual",
+                            ["CO", "H2", "CH4"]
+                        ].sum() / df_reagentes.loc[
+                            "vazao molar individual","O2"
+                        ]
+                    ) / rac_ideal
+                    return result, coef_ratio
                 elif prods_ental > reag_ent_form:
                     temp -= del_temp
                     del_temp *= .9
@@ -323,8 +368,9 @@ def temp_adiabatica(
                     raise Exception("Número máximo de iterações excedido.")
                 else:
                     raise Exception("Erro desconhecido.")
-    
     except:
+        sucesso = False
+        status_log()
         return None
 
 
