@@ -239,8 +239,9 @@ def temp_adiabatica(
         · [nmax_iter] opcional - inteiro com o número máximo de iterações 
         permitidas. 
 
-        Retorno:
-        · float - temperatura adiabática da chama em Kelvins.         
+        Retornos:
+        · float - temperatura adiabática da chama em Kelvins. 
+        · float - razão de equivalênicia
 
         Para mais informações consultar:
         https://rb.gy/fdcsqf
@@ -279,6 +280,7 @@ def temp_adiabatica(
             "Impossível conectar ao Data NIST para extração das entalpias de",
             " formação."
         )
+        return None, None
 
     # Razão ar-combustível ideal.
     rac_ideal = df_reagentes.loc[
@@ -287,17 +289,24 @@ def temp_adiabatica(
     ].sum() / ar_teorico
 
     dados = pd.DataFrame()
-    try:
-        if metodo.lower() == "moran":
+    #try:
+    if metodo.lower() == "moran":
 
             reagentes = df_reagentes.columns
             produtos = df_produtos.columns
 
             # consulta ao banco de dados DF o somatório das entalpuias de 
             # formação dos reagente 
-            reag_ent_form =   df_form_enthalpies.query(
-                f"compostos in {reagentes}"
-            )["entform"].map(float).sum()
+            reag_ent_form = 0
+            for r in reagentes:
+                val = df_form_enthalpies.query(
+                        "compostos == @r"
+                )["entform"].head(1)
+                print(val)
+                try:
+                    reag_ent_form += float(val)
+                except:
+                    reag_ent_form += 0
 
             # Iterações de busca:
 
@@ -309,7 +318,8 @@ def temp_adiabatica(
                 n_iter += 1
                 prods_ental = np.sum(
                     [
-                        float(df_form_enthalpies.loc[c,entform]) +\
+                        # problemas na linha abaixo
+                        float(df_form_enthalpies.loc[c,"entform"]) +\
                         df_produtos.loc["vazao molar individual",c] *\
                             df_produtos.PropsSI(
                                 "HMOLAR", 
@@ -368,10 +378,10 @@ def temp_adiabatica(
                     raise Exception("Número máximo de iterações excedido.")
                 else:
                     raise Exception("Erro desconhecido.")
-    except:
-        sucesso = False
-        status_log()
-        return None
+    #except:
+    #    sucesso = False
+    #    status_log()
+    #    return None, None
 
 
 
