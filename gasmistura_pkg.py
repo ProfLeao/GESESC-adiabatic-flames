@@ -300,7 +300,7 @@ def temp_adiabatica(
             reag_ent_form = 0
             for r in reagentes:
                 val = df_form_enthalpies.query(
-                        "compostos == @r"
+                        "@r in compostos"
                 )["entform"].head(1)
                 print(val)
                 try:
@@ -319,7 +319,7 @@ def temp_adiabatica(
                 prods_ental = np.sum(
                     [
                         # problemas na linha abaixo
-                        float(df_form_enthalpies.loc[c,"entform"]) +\
+                        float(df_form_enthalpies.loc[c,"entform"].head(1)) +\
                         df_produtos.loc["vazao molar individual",c] *\
                             df_produtos.PropsSI(
                                 "HMOLAR", 
@@ -336,7 +336,7 @@ def temp_adiabatica(
                                 'P', 
                                 101325, 
                                 c
-                            )
+                            ) 
                             for c in produtos
                         ]
                 )
@@ -353,7 +353,7 @@ def temp_adiabatica(
                             "vazao molar individual","O2"
                         ]
                     ) / rac_ideal
-                    return result, coef_ratio
+                    return result, coef_ratio, df_form_enthalpies # retirar o último retorno 
                 elif del_temp<=1:
                     sucesso = True
                     status_log()
@@ -365,7 +365,7 @@ def temp_adiabatica(
                             "vazao molar individual","O2"
                         ]
                     ) / rac_ideal
-                    return result, coef_ratio
+                    return result, coef_ratio, df_form_enthalpies # retirar o último retorno 
                 elif prods_ental > reag_ent_form:
                     temp -= del_temp
                     del_temp *= .9
