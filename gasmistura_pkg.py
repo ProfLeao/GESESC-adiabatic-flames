@@ -298,51 +298,66 @@ def temp_adiabatica(
             # consulta ao banco de dados DF o somatório das entalpuias de 
             # formação dos reagente 
             reag_ent_form = 0
-            for r in reagentes:
-                val = df_form_enthalpies.query(
-                        "@r in compostos"
-                )["entform"].head(1)
-                print(val)
-                try:
-                    reag_ent_form += float(val)
-                except:
-                    reag_ent_form += 0
-
-            # Iterações de busca:
+            #for r in reagentes:
+            #    val = df_form_enthalpies.query(
+            #            "@r in compostos"
+            #    )["entform"].head(1)
+            #    try:
+            #        reag_ent_form += float(val) *\
+            #            df_reagentes.loc["vazao molar individual",r]
+            #    except:
+            #        reag_ent_form += 0
+                        # Iterações de busca:
 
             min_del_temp = 1 # K - menor temperatura a ser incrementada na busca
-            del_temp = guess/2   # K - incremento inicial da temperatura
+            del_temp = guess/10   # K - incremento inicial da temperatura
             temp = guess
             n_iter = 0
             while del_temp > min_del_temp:
-                n_iter += 1
-                prods_ental = np.sum(
-                    [
-                        # problemas na linha abaixo
-                        float(df_form_enthalpies.loc[c,"entform"].head(1)) +\
-                        df_produtos.loc["vazao molar individual",c] *\
-                            df_produtos.PropsSI(
-                                "HMOLAR", 
-                                'T', 
-                                temp, 
-                                'P', 
-                                101325, 
-                                c
-                            ) -\
-                            df_produtos.PropsSI(
-                                "HMOLAR",
-                                'T', 
-                                298, 
-                                'P', 
-                                101325, 
-                                c
-                            ) 
-                            for c in produtos
-                        ]
-                )
+                print("Iterando...")
+                for c in reagentes:
+                    value = df_reagentes.loc["vazao molar individual",c]
+                    c_entalp = df_form_enthalpies.query(
+                        f"compostos == '{c}'"
+                    ).iloc[0,1]
+
+                    if type(c_entalp) == str: c_entalp = 0
+                    
+                    reag_ent_form += value * (
+                        c_entalp +\
+                        PropsSI("HMOLAR", 'T', temp, 'P', 101325, c) -\
+                        PropsSI("HMOLAR", 'T', 298, 'P', 101325, c)
+                    )
+ 
+                    n_iter += 1
+
+                    list_entalpias = np.array([])
+
+                for c in produtos:
+                    value = df_produtos.loc["vazao molar individual",c]
+                    c_entalp = df_form_enthalpies.query(
+                        f"compostos == '{c}'"
+                    ).iloc[0,1]
+
+                    if type(c_entalp) == str: c_entalp = 0
+                    
+                    value *= (
+                            c_entalp +\
+                            PropsSI("HMOLAR", 'T', temp, 'P', 101325, c) -\
+                            PropsSI("HMOLAR", 'T', 298, 'P', 101325, c)
+                        )
+
+                    list_entalpias = np.append(list_entalpias, [value])
+                
+
+                prods_ental = np.sum(list_entalpias)
                 result = round(prods_ental, 2)
+                print("temperatura atual:", temp)
+                print("Entalpia dos produtos teste:", result)
+                print("Entalpia dos reagentes objetivo:", reag_ent_form)
  
                 if result == round(reag_ent_form, 2):
+                    print("Aqui")
                     sucesso = True
                     status_log()
                     coef_ratio = (
@@ -353,7 +368,7 @@ def temp_adiabatica(
                             "vazao molar individual","O2"
                         ]
                     ) / rac_ideal
-                    return result, coef_ratio, df_form_enthalpies # retirar o último retorno 
+                    return result, coef_ratio
                 elif del_temp<=1:
                     sucesso = True
                     status_log()
@@ -365,7 +380,7 @@ def temp_adiabatica(
                             "vazao molar individual","O2"
                         ]
                     ) / rac_ideal
-                    return result, coef_ratio, df_form_enthalpies # retirar o último retorno 
+                    return result, coef_ratio 
                 elif prods_ental > reag_ent_form:
                     temp -= del_temp
                     del_temp *= .9
